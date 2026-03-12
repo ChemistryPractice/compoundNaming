@@ -113,7 +113,14 @@
         .check-btn { background: var(--accent); color: white; grid-column: span 2; }
         
         button.action:active { transform: scale(0.98); }
-        sub { font-size: 0.6em; vertical-align: sub; }
+        sub {
+                font-size: 0.55em;      /* Slightly smaller for better contrast */
+                line-height: 0;         /* Prevents the subscript from pushing the line height up */
+                position: relative;
+                vertical-align: baseline; 
+                bottom: -0.35em;        /* This manually pushes it below the line */
+                padding-left: 1px;      /* Adds a tiny bit of breathing room */
+}
 
         @media (max-width: 400px) {
             .display-area { font-size: 1.8rem; }
