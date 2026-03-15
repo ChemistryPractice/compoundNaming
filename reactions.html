@@ -141,21 +141,53 @@
             const c2 = cations[Math.floor(Math.random() * cations.length)];
             const a2 = anions[Math.floor(Math.random() * anions.length)];
             
-            const r1 = makeFormula(c1, a1);
-            const r2 = makeFormula(c2, a2);
-            display.innerHTML = format(`${r1} + ${r2} → ???`);
+            const r1_form = makeFormula(c1, a1);
+            const r2_form = makeFormula(c2, a2);
+            display.innerHTML = format(`${r1_form} + ${r2_form} → ???`);
             
-            const { s1: v1, s2: v2 } = getSubscripts(c1.c, a1.c);
-            const { s1: v3, s2: v4 } = getSubscripts(c2.c, a2.c);
-            const { s1: v5, s2: v6 } = getSubscripts(c1.c, a2.c);
-            const { s1: v7, s2: v8 } = getSubscripts(c2.c, a1.c);
+            // Get subscripts for all 4 possible compounds
+            const { s1: ab_c, s2: ab_a } = getSubscripts(c1.c, a1.c); // AB
+            const { s1: cd_c, s2: cd_a } = getSubscripts(c2.c, a2.c); // CD
+            const { s1: ad_c, s2: ad_a } = getSubscripts(c1.c, a2.c); // AD
+            const { s1: cb_c, s2: cb_a } = getSubscripts(c2.c, a1.c); // CB
 
-            const n1 = lcm(v1, v5) / v1; 
-            const n2 = lcm(v3, v7) / v3; 
-            const n3 = (n1 * v1) / v5;   
-            const n4 = (n2 * v3) / v7;   
+            // To balance: n1(AB) + n2(CD) -> n3(AD) + n4(CB)
+            // We balance C1: n1 * ab_c = n3 * ad_c
+            // We balance C2: n2 * cd_c = n4 * cb_c
+            // We balance A1: n1 * ab_a = n4 * cb_a
+            
+            // Step 1: Find ratio of AB to AD based on C1
+            let n1 = lcm(ab_c, ad_c) / ab_c;
+            let n3 = lcm(ab_c, ad_c) / ad_c;
 
-            currentSolution = `<b>${n1==1?'':n1}</b>${r1} + <b>${n2==1?'':n2}</b>${r2} → <b>${n3==1?'':n3}</b>${makeFormula(c1,a2)} + <b>${n4==1?'':n4}</b>${makeFormula(c2,a1)}`;
+            // Step 2: Now we know how much A1 we have (n1 * ab_a). 
+            // This MUST equal n4 * cb_a.
+            let totalA1needed = n1 * ab_a;
+            let n4 = totalA1needed / cb_a;
+
+            // Step 3: Now we know how much C2 we have (n4 * cb_c).
+            // This MUST equal n2 * cd_c.
+            let totalC2needed = n4 * cb_c;
+            let n2 = totalC2needed / cd_c;
+
+            // Step 4: If any coefficients are fractions, multiply all by the denominator
+            // (This happens with Fe(+3) and Ba(+2) type combos)
+            const denoms = [
+                n1 % 1 ? 1 / (n1 % 1) : 1,
+                n2 % 1 ? 1 / (n2 % 1) : 1,
+                n3 % 1 ? 1 / (n3 % 1) : 1,
+                n4 % 1 ? 1 / (n4 % 1) : 1
+            ];
+            const multiplier = Math.max(...denoms);
+            
+            n1 *= multiplier; n2 *= multiplier; n3 *= multiplier; n4 *= multiplier;
+
+            const f1 = n1 === 1 ? '' : n1;
+            const f2 = n2 === 1 ? '' : n2;
+            const f3 = n3 === 1 ? '' : n3;
+            const f4 = n4 === 1 ? '' : n4;
+
+            currentSolution = `<b>${f1}</b>${r1_form} + <b>${f2}</b>${r2_form} → <b>${f3}</b>${makeFormula(c1, a2)} + <b>${f4}</b>${makeFormula(c2, a1)}`;
         }
     }
 
