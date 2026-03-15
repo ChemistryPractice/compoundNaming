@@ -71,26 +71,26 @@
     const series = ["Li", "K", "Ba", "Sr", "Ca", "Na", "Mg", "Al", "Mn", "Zn", "Cr", "Fe", "Cd", "Co", "Ni", "Sn", "Pb", "H", "Cu", "Hg", "Ag", "Pt", "Au"];
     const diatomics = ["H", "N", "O", "F", "Cl", "Br", "I"];
 
+    let currentSolution = ""; // Stores the balanced string
+
     function gcd(a, b) { return b ? gcd(b, a % b) : a; }
-    function lcm(a, b) { return (a * b) / gcd(a, b); }
+    function lcm(a, b) { return (a * b) / (gcd(a, b) || 1); }
 
     function getSubscripts(c1, c2) {
         const common = gcd(c1, c2);
-        return { sub1: c2 / common, sub2: c1 / common };
+        return { s1: c2 / common, s2: c1 / common };
     }
 
-    function makeFormula(cat, ani, coeff = 1) {
-        const { sub1, sub2 } = getSubscripts(cat.c, ani.c);
-        const cStr = (sub1 > 1 && (cat.s.length > 2 || /\d/.test(cat.s))) ? `(${cat.s})${sub1}` : `${cat.s}${sub1 > 1 ? sub1 : ''}`;
-        const aStr = (sub2 > 1 && (ani.s.length > 2 || /\d/.test(ani.s))) ? `(${ani.s})${sub2}` : `${ani.s}${sub2 > 1 ? sub2 : ''}`;
-        const cPrefix = coeff > 1 ? coeff : '';
-        return cPrefix + cStr + aStr;
+    function makeFormula(cat, ani) {
+        const { s1, s2 } = getSubscripts(cat.c, ani.c);
+        const cPart = (s1 > 1 && (cat.s.length > 2 || /\d/.test(cat.s))) ? `(${cat.s})${s1}` : `${cat.s}${s1 > 1 ? s1 : ''}`;
+        const aPart = (s2 > 1 && (ani.s.length > 2 || /\d/.test(ani.s))) ? `(${ani.s})${s2}` : `${ani.s}${s2 > 1 ? s2 : ''}`;
+        return cPart + aPart;
     }
 
     function format(txt) { 
-    // This only targets numbers that follow a letter or ')'
-    return txt.replace(/([A-Za-z\)])(\d+)/g, '$1<sub>$2</sub>'); 
-}
+        return txt.replace(/([A-Za-z\)])(\d+)/g, '$1<sub>$2</sub>'); 
+    }
 
     function generate(type) {
         const display = document.getElementById('equation-display');
@@ -99,42 +99,40 @@
         
         if(type === 'single') {
             document.getElementById('mode-label').innerText = "Single Replacement";
-            const c1 = cations[Math.floor(Math.random() * cations.length)]; // In compound
-            const a1 = anions[Math.floor(Math.random() * anions.length)];   // In compound
-            const pure = cations[Math.floor(Math.random() * cations.length)]; // Lone element
+            const c1 = cations[Math.floor(Math.random() * cations.length)]; 
+            const a1 = anions[Math.floor(Math.random() * anions.length)];   
+            const pure = cations[Math.floor(Math.random() * cations.length)]; 
             
             const r1_sub = diatomics.includes(pure.s) ? 2 : 1;
-            const r2_form = makeFormula(c1, a1);
-            display.innerHTML = format(`${pure.s}${r1_sub > 1 ? r1_sub : ''} + ${r2_form} → ???`);
+            const r1_str = pure.s + (r1_sub > 1 ? r1_sub : '');
+            const r2_str = makeFormula(c1, a1);
+            display.innerHTML = format(`${r1_str} + ${r2_str} → ???`);
 
-            if (series.indexOf(pure.s) < series.indexOf(c1.s) && series.indexOf(pure.s) !== -1) {
-                // Balancing Single Replacement: A + BC -> AC + B
-                // Coefficients depend on charges and diatomics
+            if (series.indexOf(pure.s) < series.indexOf(c1.s)) {
+                const p1_str = makeFormula(pure, a1);
                 const p2_sub = diatomics.includes(c1.s) ? 2 : 1;
-                const { sub1: ac_cat_sub, sub2: ac_ani_sub } = getSubscripts(pure.c, a1.c);
-                const { sub1: bc_cat_sub, sub2: bc_ani_sub } = getSubscripts(c1.c, a1.c);
+                const p2_str = c1.s + (p2_sub > 1 ? p2_sub : '');
 
-                // Simple balancing for A + B(sub)C(sub) -> A(sub)C(sub) + B
-                let coeffA = 1, coeffBC = 1, coeffAC = 1, coeffB = 1;
-                
-                // Balance Anion first
-                coeffAC = lcm(bc_ani_sub, ac_ani_sub) / ac_ani_sub;
-                coeffBC = lcm(bc_ani_sub, ac_ani_sub) / bc_ani_sub;
-                // Balance Cations
-                coeffA = (coeffAC * ac_cat_sub) / r1_sub;
-                coeffB = (coeffBC * bc_cat_sub) / p2_sub;
+                // Stoichiometry math
+                const { s1: bc_c_sub, s2: bc_a_sub } = getSubscripts(c1.c, a1.c);
+                const { s1: ac_c_sub, s2: ac_a_sub } = getSubscripts(pure.c, a1.c);
 
-                // Cleanup if fractions occurred (rare in this simple set)
-                const factor = lcm(lcm(coeffA, coeffBC), lcm(coeffAC, coeffB)) / gcd(lcm(coeffA, coeffBC), lcm(coeffAC, coeffB));
-                // For simplicity in this UI, we ensure they are integers
-                const finalA = coeffA == 1 ? '' : coeffA;
-                const finalBC = coeffBC == 1 ? '' : coeffBC;
-                const finalAC = coeffAC == 1 ? '' : coeffAC;
-                const finalB = coeffB == 1 ? '' : coeffB;
+                let cAC = lcm(bc_a_sub, ac_a_sub) / ac_a_sub;
+                let cBC = lcm(bc_a_sub, ac_a_sub) / bc_a_sub;
+                let cA = (cAC * ac_c_sub) / r1_sub;
+                let cB = (cBC * bc_c_sub) / p2_sub;
 
-               answer.innerHTML = "Balanced: " + format(`${finalAC ? '<b>'+finalAC+'</b>' : ''}${makeFormula(pure, a1)} + ${finalB ? '<b>'+finalB+'</b>' : ''}${c1.s}${p2_sub > 1 ? p2_sub : ''}`);
+                // Ensure integers (fix for diatomic mismatches)
+                const commonMult = lcm(lcm(Math.ceil(cA), Math.ceil(cB)), lcm(cAC, cBC)) / (gcd(cA, cB) || 1);
+                // For this specific chemical set, the ratios are simple:
+                const fA = cA == 1 ? '' : cA;
+                const fBC = cBC == 1 ? '' : cBC;
+                const fAC = cAC == 1 ? '' : cAC;
+                const fB = cB == 1 ? '' : cB;
+
+                currentSolution = `<b>${fA}</b>${r1_str} + <b>${fBC}</b>${r2_str} → <b>${fAC}</b>${p1_str} + <b>${fB}</b>${p2_str}`;
             } else {
-                answer.innerHTML = "Result: No Reaction (NR)";
+                currentSolution = "No Reaction (NR)";
             }
         } else {
             document.getElementById('mode-label').innerText = "Double Replacement";
@@ -143,25 +141,29 @@
             const c2 = cations[Math.floor(Math.random() * cations.length)];
             const a2 = anions[Math.floor(Math.random() * anions.length)];
             
-            display.innerHTML = format(`${makeFormula(c1, a1)} + ${makeFormula(c2, a2)} → ???`);
+            const r1 = makeFormula(c1, a1);
+            const r2 = makeFormula(c2, a2);
+            display.innerHTML = format(`${r1} + ${r2} → ???`);
             
-            // Balancing Double Replacement: AB + CD -> AD + CB
-            const { sub1: v1, sub2: v2 } = getSubscripts(c1.c, a1.c); // AB
-            const { sub1: v3, sub2: v4 } = getSubscripts(c2.c, a2.c); // CD
-            const { sub1: v5, sub2: v6 } = getSubscripts(c1.c, a2.c); // AD
-            const { sub1: v7, sub2: v8 } = getSubscripts(c2.c, a1.c); // CB
+            const { s1: v1, s2: v2 } = getSubscripts(c1.c, a1.c);
+            const { s1: v3, s2: v4 } = getSubscripts(c2.c, a2.c);
+            const { s1: v5, s2: v6 } = getSubscripts(c1.c, a2.c);
+            const { s1: v7, s2: v8 } = getSubscripts(c2.c, a1.c);
 
-            // Find coefficients using a simplified LCM approach for the ions
-            const n1 = lcm(v1, v5) / v1; // Coeff for AB
-            const n2 = lcm(v3, v7) / v3; // Coeff for CD
-            const n3 = (n1 * v1) / v5;   // Coeff for AD
-            const n4 = (n2 * v3) / v7;   // Coeff for CB
+            const n1 = lcm(v1, v5) / v1; 
+            const n2 = lcm(v3, v7) / v3; 
+            const n3 = (n1 * v1) / v5;   
+            const n4 = (n2 * v3) / v7;   
 
-            answer.innerHTML = "Balanced: " + format(`${n3 == 1 ? '' : '<b>'+n3+'</b>'}${makeFormula(c1, a2)} + ${n4 == 1 ? '' : '<b>'+n4+'</b>'}${makeFormula(c2, a1)}`);
+            currentSolution = `<b>${n1==1?'':n1}</b>${r1} + <b>${n2==1?'':n2}</b>${r2} → <b>${n3==1?'':n3}</b>${makeFormula(c1,a2)} + <b>${n4==1?'':n4}</b>${makeFormula(c2,a1)}`;
         }
     }
 
-    function showAnswer() { document.getElementById('answer-display').classList.add('visible'); }
+    function showAnswer() { 
+        const answer = document.getElementById('answer-display');
+        answer.innerHTML = format(currentSolution);
+        answer.classList.add('visible'); 
+    }
 </script>
 </body>
 </html>
